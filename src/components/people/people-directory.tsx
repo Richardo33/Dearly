@@ -18,10 +18,11 @@ const filters: Array<"All" | PersonStatus> = [
 ];
 
 type PeopleDirectoryProps = {
+  isAdmin?: boolean;
   people: Person[];
 };
 
-export function PeopleDirectory({ people }: PeopleDirectoryProps) {
+export function PeopleDirectory({ isAdmin = false, people }: PeopleDirectoryProps) {
   const [activeFilter, setActiveFilter] =
     useState<(typeof filters)[number]>("All");
   const [query, setQuery] = useState("");
@@ -79,18 +80,20 @@ export function PeopleDirectory({ people }: PeopleDirectoryProps) {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {filteredPeople.map((person) => (
-          <PersonCard key={person.id} person={person} />
+          <PersonCard key={person.id} isAdmin={isAdmin} person={person} />
         ))}
 
-        <LinkButton
-          href="/admin/people/new"
-          variant="outline"
-          className="min-h-80 flex-col border-dashed bg-[#FFF8F3]"
-        >
-          <Plus className="h-7 w-7" />
-          Add New
-          <span className="text-xs font-normal text-[#8A746B]">Someone</span>
-        </LinkButton>
+        {isAdmin ? (
+          <LinkButton
+            href="/admin/people/new"
+            variant="outline"
+            className="min-h-80 flex-col border-dashed bg-[#FFF8F3]"
+          >
+            <Plus className="h-7 w-7" />
+            Add New
+            <span className="text-xs font-normal text-[#8A746B]">Someone</span>
+          </LinkButton>
+        ) : null}
       </section>
 
       {filteredPeople.length === 0 ? (

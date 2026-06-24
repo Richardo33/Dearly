@@ -29,8 +29,6 @@ export default async function EditPersonPage({ params }: EditPersonPageProps) {
         defaultValues={{
           birthday: person.birthday,
           bio: person.description,
-          favorites: person.favorites,
-          gallery: person.gallery,
           location: person.location,
           name: person.name,
           nickname: person.nickname,
@@ -38,7 +36,6 @@ export default async function EditPersonPage({ params }: EditPersonPageProps) {
           relationship: person.relationship,
           status: person.status,
           tags: person.tags.join(", "),
-          wishlist: person.wishlist,
         }}
       />
     </PageShell>

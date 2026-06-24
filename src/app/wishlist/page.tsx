@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { Surface } from "@/components/ui/surface";
 import { getPeople } from "@/src/features/people/data";
+import { isAdminSession } from "@/src/lib/admin/session";
 
 export default async function WishlistPage() {
   const people = await getPeople();
+  const isAdmin = await isAdminSession();
   const wishlist = people.flatMap((person) =>
     person.wishlist.map((item) => ({ ...item, person })),
   );
@@ -19,10 +21,12 @@ export default async function WishlistPage() {
         title="Wishlist"
         description="Things they casually mentioned, so you can remember later."
         actions={
+          isAdmin ? (
           <LinkButton href="/admin/people/new" size="sm">
             <Plus className="h-4 w-4" />
             Add Wishlist Item
           </LinkButton>
+          ) : null
         }
         className="[&_h1]:md:text-4xl [&_p]:text-sm [&_p]:leading-6"
       />

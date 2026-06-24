@@ -8,47 +8,22 @@ import { Button } from "@/components/ui/button";
 import { InputFrame } from "@/components/ui/field";
 import { LinkButton } from "@/components/ui/link-button";
 import { Surface } from "@/components/ui/surface";
-import type { DiaryEntry, Person } from "@/src/types/person";
+import { getPersonPath } from "@/lib/person-path";
+import type { Person } from "@/src/types/person";
 
 type DiaryListProps = {
+  isAdmin?: boolean;
   person: Person;
 };
 
-function getLocalEntries(personId: string): DiaryEntry[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  const rawEntries = window.localStorage.getItem(`dearly.diary.${personId}`);
-
-  if (!rawEntries) {
-    return [];
-  }
-
-  try {
-    return JSON.parse(rawEntries) as DiaryEntry[];
-  } catch {
-    return [];
-  }
-}
-
-export function DiaryList({ person }: DiaryListProps) {
+export function DiaryList({ isAdmin = false, person }: DiaryListProps) {
   const [query, setQuery] = useState("");
-  const [localEntries] = useState(() => getLocalEntries(person.id));
 
   const entries = useMemo(() => {
-    const entryMap = new Map<string, DiaryEntry>();
-
-    for (const entry of person.diaryEntries) {
-      entryMap.set(entry.id, entry);
-    }
-
-    for (const entry of localEntries) {
-      entryMap.set(entry.id, entry);
-    }
-
-    return Array.from(entryMap.values());
-  }, [localEntries, person.diaryEntries]);
+    return [...person.diaryEntries].sort((first, second) =>
+      second.date.localeCompare(first.date),
+    );
+  }, [person.diaryEntries]);
 
   const filteredEntries = entries.filter((entry) => {
     const value = `${entry.title} ${entry.date} ${entry.content}`.toLowerCase();
@@ -73,10 +48,12 @@ export function DiaryList({ person }: DiaryListProps) {
             </div>
           </div>
 
-          <LinkButton href={`/people/${person.id}/diary/new`} className="w-full md:w-auto">
+          {isAdmin ? (
+          <LinkButton href={`${getPersonPath(person)}/diary/new`} className="w-full md:w-auto">
             <Plus className="h-4 w-4" />
             New Diary Entry
           </LinkButton>
+          ) : null}
         </div>
 
         <InputFrame className="mt-6 bg-[#FFFDF9] shadow-none">
@@ -103,7 +80,7 @@ export function DiaryList({ person }: DiaryListProps) {
 
       <div className="grid gap-4">
         {filteredEntries.map((entry) => (
-          <Link key={entry.id} href={`/people/${person.id}/diary/${entry.id}`}>
+          <Link key={entry.id} href={`${getPersonPath(person)}/diary/${entry.id}`}>
             <Surface className="grid gap-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md sm:grid-cols-[72px_1fr_auto] sm:items-center">
               <div className="w-fit rounded-2xl bg-[#FFF8F3] px-4 py-3 text-center sm:w-auto">
                 <p className="text-lg font-bold text-[#3D2F2A]">

@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { Surface } from "@/components/ui/surface";
 import { getPeople } from "@/src/features/people/data";
+import { isAdminSession } from "@/src/lib/admin/session";
 
 const colors = ["bg-[#FFF3D7]", "bg-[#F7DDE5]", "bg-[#E9DDF6]", "bg-[#F4E5D5]"];
 
 export default async function LittleThingsPage() {
   const people = await getPeople();
+  const isAdmin = await isAdminSession();
   const notes = people.flatMap((person) =>
     person.littleThings.map((note) => ({ ...note, person })),
   );
@@ -21,10 +23,12 @@ export default async function LittleThingsPage() {
         title="Little Things"
         description="Tiny things you do not want to forget."
         actions={
+          isAdmin ? (
           <LinkButton href="/admin/people/new" size="sm">
             <Plus className="h-4 w-4" />
             Add Note
           </LinkButton>
+          ) : null
         }
         className="[&_h1]:md:text-4xl [&_p]:text-sm [&_p]:leading-6"
       />

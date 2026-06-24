@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
-  BookOpenText,
   CalendarHeart,
   Gift,
   Heart,
@@ -9,7 +8,6 @@ import {
   MapPin,
   NotebookPen,
   Pencil,
-  Plus,
   Sparkles,
 } from "lucide-react";
 
@@ -17,9 +15,18 @@ import { PageShell, TopNav } from "@/components/layout/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { Surface } from "@/components/ui/surface";
+import { ProfileDiarySection } from "@/src/components/diary/profile-diary-section";
+import {
+  FavoritesEditor,
+  GalleryEditor,
+  LittleThingsEditor,
+  WishlistEditor,
+} from "@/src/components/people/person-collection-editors";
 import { PersonPhoto } from "@/src/components/people/person-photo";
 import { getPersonById } from "@/src/features/people/data";
+import { isAdminSession } from "@/src/lib/admin/session";
 import { cn } from "@/lib/utils";
+import { getPersonPath } from "@/lib/person-path";
 import type { FavoriteItem, WishlistItem } from "@/src/types/person";
 
 type PersonDetailPageProps = {
@@ -63,12 +70,18 @@ export default async function PersonDetailPage({
   const { tab } = await searchParams;
   const activeTab = isDetailTab(tab) ? tab : "overview";
   const person = await getPersonById(id);
+  const isAdmin = await isAdminSession();
 
   if (!person) {
     notFound();
   }
   const favoriteGroups = groupByCategory<FavoriteItem>(person.favorites);
   const wishlistGroups = groupByCategory<WishlistItem>(person.wishlist);
+  const personPath = getPersonPath(person);
+
+  if (id !== person.slug) {
+    redirect(activeTab === "overview" ? personPath : `${personPath}?tab=${activeTab}`);
+  }
   const derivedGalleryItems = [
     ...(person.photo
       ? [
@@ -89,15 +102,18 @@ export default async function PersonDetailPage({
         url: entry.image as string,
       })),
   ];
-  const galleryItems =
-    person.gallery.length > 0
-      ? person.gallery.map((asset) => ({
-          id: asset.id,
-          label: asset.altText ?? "Gallery image",
-          source: asset.sourceType,
-          url: asset.url,
-        }))
-      : derivedGalleryItems;
+  const manualGalleryItems = person.gallery
+    .filter((asset) => asset.sourceType === "gallery")
+    .map((asset) => ({
+      id: asset.id,
+      label: asset.altText ?? "Gallery image",
+      source: "Gallery",
+      url: asset.url,
+    }));
+  const galleryItems = [...derivedGalleryItems, ...manualGalleryItems].filter(
+    (item, index, items) =>
+      items.findIndex((candidate) => candidate.url === item.url) === index,
+  );
 
   return (
     <PageShell maxWidth="7xl" withAppNav>
@@ -105,6 +121,7 @@ export default async function PersonDetailPage({
 
       <section className="overflow-hidden rounded-[2rem] border border-[#E7D8CB] bg-white shadow-sm">
         <div className="relative bg-[#2B1D32] px-5 py-8 text-white sm:px-8">
+          {isAdmin ? (
           <div className="absolute right-4 top-4 flex gap-2">
             <LinkButton
               href={`/admin/people/${person.id}/edit`}
@@ -116,6 +133,7 @@ export default async function PersonDetailPage({
               Edit
             </LinkButton>
           </div>
+          ) : null}
 
           <div className="flex flex-col gap-6 md:flex-row md:items-end">
             <PersonPhoto
@@ -146,7 +164,7 @@ export default async function PersonDetailPage({
           {tabs.map((item) => (
             <Link
               key={item.value}
-              href={`/people/${person.id}?tab=${item.value}`}
+              href={`${personPath}?tab=${item.value}`}
               className={cn(
                 "shrink-0 rounded-full px-4 py-2 transition hover:bg-[#F8F1E8] hover:text-[#3D2F2A]",
                 activeTab === item.value && "bg-[#F3D6D0] text-[#7C4F46]",
@@ -216,7 +234,7 @@ export default async function PersonDetailPage({
                   {tabs.slice(1).map((item) => (
                     <LinkButton
                       key={item.value}
-                      href={`/people/${person.id}?tab=${item.value}`}
+                      href={`${personPath}?tab=${item.value}`}
                       variant="outline"
                     >
                       {item.label}
@@ -234,31 +252,43 @@ export default async function PersonDetailPage({
                   <Heart className="h-5 w-5 text-[#D9798F]" />
                   Favorites by Category
                 </h2>
-                <LinkButton href={`/admin/people/${person.id}/edit`} size="sm">
-                  <Plus className="h-4 w-4" />
-                  Add Favorite
-                </LinkButton>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {Object.entries(favoriteGroups).map(([category, favorites]) => (
                   <Surface key={category} className="bg-[#FFFDF9]">
-                    <p className="text-xs font-semibold uppercase text-[#9B645C]">
-                      {category}
-                    </p>
-                    <div className="mt-4 space-y-3">
-                      {favorites.map((favorite) => (
-                        <div key={`${favorite.category}-${favorite.label}`}>
-                          <h3 className="font-bold">{favorite.label}</h3>
-                          <p className="mt-1 text-sm text-[#6F5E57]">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase text-[#9B645C]">
+                        {category}
+                      </p>
+                      <Badge variant="muted">
+                        {favorites.length} item
+                      </Badge>
+                    </div>
+                    <ul className="mt-4 max-h-64 divide-y divide-[#EFE3D8] overflow-y-auto rounded-2xl border border-[#EFE3D8] bg-white/45">
+                      {favorites.map((favorite, favoriteIndex) => (
+                        <li
+                          key={`${favorite.category}-${favorite.value}`}
+                          className="flex items-center gap-3 px-4 py-3"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F8F1E8] text-xs font-bold text-[#9B645C]">
+                            {favoriteIndex + 1}
+                          </span>
+                          <p className="min-w-0 flex-1 truncate font-bold">
                             {favorite.value}
                           </p>
-                        </div>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </Surface>
                 ))}
               </div>
+              {isAdmin ? (
+                <FavoritesEditor
+                  initialItems={person.favorites}
+                  personId={person.id}
+                />
+              ) : null}
             </section>
           ) : null}
 
@@ -269,10 +299,6 @@ export default async function PersonDetailPage({
                   <Gift className="h-5 w-5 text-[#D9798F]" />
                   Wishlist by Category
                 </h2>
-                <LinkButton href={`/admin/people/${person.id}/edit`} size="sm">
-                  <Plus className="h-4 w-4" />
-                  Add Wishlist Item
-                </LinkButton>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -300,56 +326,17 @@ export default async function PersonDetailPage({
                   </Surface>
                 ))}
               </div>
+              {isAdmin ? (
+                <WishlistEditor
+                  initialItems={person.wishlist}
+                  personId={person.id}
+                />
+              ) : null}
             </section>
           ) : null}
 
           {activeTab === "diary" ? (
-            <section className="space-y-4">
-              <Surface padding="lg" className="bg-[#FFFDF9]">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="flex items-center gap-2 text-xl font-bold">
-                      <BookOpenText className="h-5 w-5 text-[#D9798F]" />
-                      Diary Entries
-                    </h2>
-                    <p className="mt-2 text-sm text-[#6F5E57]">
-                      Open the full diary page to write, search, and edit.
-                    </p>
-                  </div>
-                  <LinkButton href={`/people/${person.id}/diary/new`}>
-                    <Plus className="h-4 w-4" />
-                    Add Diary Entry
-                  </LinkButton>
-                </div>
-              </Surface>
-
-              {person.diaryEntries.map((entry) => (
-                <Surface
-                  key={entry.id}
-                  className="grid gap-4 bg-[#FFFDF9] md:grid-cols-[1fr_220px] md:items-center"
-                >
-                  <div>
-                    <p className="text-xs font-semibold text-[#9B645C]">
-                      {entry.date} - Mood: {entry.mood}
-                    </p>
-                    <h2 className="mt-1 font-bold">{entry.title}</h2>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#6F5E57]">
-                      {entry.content}
-                    </p>
-                  </div>
-                  {entry.image ? (
-                    <div
-                      className="aspect-video rounded-2xl bg-cover bg-center"
-                      style={{ backgroundImage: `url(${entry.image})` }}
-                    />
-                  ) : (
-                    <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-[#D9C9BC] text-xs font-semibold text-[#8A746B]">
-                      No image
-                    </div>
-                  )}
-                </Surface>
-              ))}
-            </section>
+            <ProfileDiarySection isAdmin={isAdmin} person={person} />
           ) : null}
 
           {activeTab === "gallery" ? (
@@ -359,10 +346,6 @@ export default async function PersonDetailPage({
                   <Images className="h-5 w-5 text-[#D9798F]" />
                   Gallery
                 </h2>
-                <LinkButton href={`/admin/people/${person.id}/edit`} size="sm">
-                  <Plus className="h-4 w-4" />
-                  Add Profile Photo
-                </LinkButton>
               </div>
 
               {galleryItems.length > 0 ? (
@@ -389,6 +372,12 @@ export default async function PersonDetailPage({
                   </p>
                 </Surface>
               )}
+              {isAdmin ? (
+                <GalleryEditor
+                  initialItems={person.gallery}
+                  personId={person.id}
+                />
+              ) : null}
             </section>
           ) : null}
 
@@ -416,14 +405,22 @@ export default async function PersonDetailPage({
           ) : null}
 
           {activeTab === "little-things" ? (
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {person.littleThings.map((note) => (
-                <Surface key={note.id} className="min-h-36 bg-[#FFFDF9]">
-                  <NotebookPen className="mb-4 h-5 w-5 text-[#D9798F]" />
-                  <Badge variant="outline">{note.category}</Badge>
-                  <p className="mt-4 font-semibold leading-7">{note.text}</p>
-                </Surface>
-              ))}
+            <section className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {person.littleThings.map((note) => (
+                  <Surface key={note.id} className="min-h-36 bg-[#FFFDF9]">
+                    <NotebookPen className="mb-4 h-5 w-5 text-[#D9798F]" />
+                    <Badge variant="outline">{note.category}</Badge>
+                    <p className="mt-4 font-semibold leading-7">{note.text}</p>
+                  </Surface>
+                ))}
+              </div>
+              {isAdmin ? (
+                <LittleThingsEditor
+                  initialItems={person.littleThings}
+                  personId={person.id}
+                />
+              ) : null}
             </section>
           ) : null}
         </div>

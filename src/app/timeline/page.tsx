@@ -4,9 +4,11 @@ import { PageHeader, PageShell, TopNav } from "@/components/layout/page-shell";
 import { LinkButton } from "@/components/ui/link-button";
 import { Surface } from "@/components/ui/surface";
 import { getPeople } from "@/src/features/people/data";
+import { isAdminSession } from "@/src/lib/admin/session";
 
 export default async function TimelinePage() {
   const people = await getPeople();
+  const isAdmin = await isAdminSession();
   const events = people.flatMap((person) =>
     person.timeline.map((event) => ({ ...event, person })),
   );
@@ -18,10 +20,12 @@ export default async function TimelinePage() {
         title="Timeline"
         description="Important moments in your journey."
         actions={
+          isAdmin ? (
           <LinkButton href="/admin/people/new" size="sm">
             <Plus className="h-4 w-4" />
             Add Event
           </LinkButton>
+          ) : null
         }
         className="[&_h1]:md:text-4xl [&_p]:text-sm [&_p]:leading-6"
       />

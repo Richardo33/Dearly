@@ -1,102 +1,144 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { BookOpenText, Check, MoreHorizontal } from "lucide-react";
+import {
+  BookOpenText,
+  CalendarHeart,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { MediaUpload } from "@/components/ui/media-upload";
-import type { DiaryEntry, Person } from "@/src/types/person";
+import { getPersonPath } from "@/lib/person-path";
 import { cn } from "@/lib/utils";
+import type { DiaryEntry, Person } from "@/src/types/person";
 
 type DiaryEditorProps = {
   entryId: string;
+  isAdmin?: boolean;
   person: Person;
 };
 
-function toSlug(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+function getTodayValue() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function getTodayLabel() {
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date());
+function isNewEntry(entryId: string) {
+  return entryId === "new";
 }
 
-function getLocalEntries(personId: string): DiaryEntry[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  const rawEntries = window.localStorage.getItem(`dearly.diary.${personId}`);
-
-  if (!rawEntries) {
-    return [];
-  }
-
-  try {
-    return JSON.parse(rawEntries) as DiaryEntry[];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalEntry(personId: string, entry: DiaryEntry) {
-  const entries = getLocalEntries(personId);
-  const nextEntries = entries.filter((item) => item.id !== entry.id);
-  nextEntries.unshift(entry);
-  window.localStorage.setItem(
-    `dearly.diary.${personId}`,
-    JSON.stringify(nextEntries),
-  );
-}
-
-export function DiaryEditor({ entryId, person }: DiaryEditorProps) {
+export function DiaryEditor({
+  entryId,
+  isAdmin = false,
+  person,
+}: DiaryEditorProps) {
   const router = useRouter();
+  const personPath = getPersonPath(person);
+  const isNew = isNewEntry(entryId);
 
   const initialEntry = useMemo(() => {
-    const entries = [...getLocalEntries(person.id), ...person.diaryEntries];
-    return entries.find((entry) => entry.id === entryId);
-  }, [entryId, person.diaryEntries, person.id]);
+    return person.diaryEntries.find((entry) => entry.id === entryId);
+  }, [entryId, person.diaryEntries]);
+  const diaryEntries = useMemo(() => {
+    return [...person.diaryEntries].sort((firstEntry, secondEntry) =>
+      firstEntry.date.localeCompare(secondEntry.date),
+    );
+  }, [person.diaryEntries]);
+  const selectedEntryIndex = useMemo(() => {
+    return diaryEntries.findIndex((entry) => entry.id === entryId);
+  }, [diaryEntries, entryId]);
+  const [pageIndex, setPageIndex] = useState(() => {
+    if (selectedEntryIndex < 0) {
+      return 0;
+    }
 
-  const [date, setDate] = useState(initialEntry?.date ?? getTodayLabel());
+    return selectedEntryIndex % 2 === 0
+      ? selectedEntryIndex
+      : selectedEntryIndex - 1;
+  });
+  const [turnDirection, setTurnDirection] = useState<"next" | "previous" | null>(
+    null,
+  );
+
+  const [date, setDate] = useState(initialEntry?.date ?? getTodayValue());
   const [title, setTitle] = useState(initialEntry?.title ?? "");
   const [content, setContent] = useState(initialEntry?.content ?? "");
   const [image, setImage] = useState(initialEntry?.image ?? "");
   const [mood, setMood] = useState(initialEntry?.mood ?? "Happy");
-  const [status, setStatus] = useState<"idle" | "saved">("idle");
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
 
-  const handleSave = () => {
-    const savedEntryId =
-      initialEntry?.id || toSlug(title) || `entry-${Date.now().toString()}`;
+  const handleSave = async () => {
+    if (!isAdmin || !isNew) {
+      return;
+    }
 
-    const entry = {
-      id: savedEntryId,
-      date,
-      title: title || "Untitled diary entry",
-      content,
-      mood,
-      tags: initialEntry?.tags ?? [],
-      isPublic: initialEntry?.isPublic ?? false,
-      image,
-    };
+    setError("");
+    setStatus("saving");
 
-    saveLocalEntry(person.id, entry);
+    const response = await fetch(`/api/admin/people/${person.id}/diary`, {
+      body: JSON.stringify({
+        content,
+        date,
+        imageUrl: image,
+        mood,
+        tags: [],
+        title,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const result = (await response.json().catch(() => null)) as {
+      id?: string;
+      message?: string;
+    } | null;
+
+    if (!response.ok || !result?.id) {
+      setError(result?.message ?? "Failed to save diary entry.");
+      setStatus("idle");
+      return;
+    }
+
     setStatus("saved");
+    router.refresh();
 
     window.setTimeout(() => {
-      router.replace(`/people/${person.id}/diary/${entry.id}`);
+      router.replace(`${personPath}?tab=diary`);
       setStatus("idle");
-    }, 500);
+    }, 400);
   };
+
+  if (!isNew && initialEntry) {
+    return (
+      <DiaryBookSpread
+        entries={diaryEntries}
+        pageIndex={pageIndex}
+        person={person}
+        turnDirection={turnDirection}
+        onTurn={(direction) => {
+          const nextPageIndex =
+            direction === "next"
+              ? Math.min(pageIndex + 2, diaryEntries.length - 1)
+              : Math.max(pageIndex - 2, 0);
+
+          if (nextPageIndex === pageIndex) {
+            return;
+          }
+
+          setTurnDirection(direction);
+          setPageIndex(nextPageIndex);
+          window.setTimeout(() => setTurnDirection(null), 520);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="rounded-[1.5rem] border border-[#CBB6A7] bg-[#6E5749] p-2 shadow-2xl sm:rounded-[2rem] sm:p-3">
@@ -108,28 +150,34 @@ export function DiaryEditor({ entryId, person }: DiaryEditorProps) {
               variant="ghost"
               size="icon-sm"
               aria-label="Back to diary"
-              onClick={() => router.push(`/people/${person.id}/diary`)}
+              onClick={() => router.push(`${personPath}?tab=diary`)}
             >
               <BookOpenText className="h-4 w-4" />
             </Button>
 
-            <div className="flex items-center gap-2">
+            {isAdmin ? (
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 onClick={handleSave}
+                disabled={status === "saving"}
               >
-                {status === "saved" ? (
-                  <Check className="h-4 w-4" />
-                ) : null}
-                {status === "saved" ? "Saved" : "Save"}
+                {status === "saved" ? <Check className="h-4 w-4" /> : null}
+                {status === "saving"
+                  ? "Saving..."
+                  : status === "saved"
+                    ? "Saved"
+                    : "Save"}
               </Button>
-              <Button type="button" variant="ghost" size="icon-sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
+            ) : null}
           </div>
+
+          {error ? (
+            <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              {error}
+            </p>
+          ) : null}
 
           <div className="space-y-4">
             <label className="block">
@@ -137,7 +185,9 @@ export function DiaryEditor({ entryId, person }: DiaryEditorProps) {
                 Date
               </span>
               <Input
+                type="date"
                 value={date}
+                readOnly={!isAdmin}
                 onChange={(event) => setDate(event.target.value)}
               />
             </label>
@@ -148,6 +198,7 @@ export function DiaryEditor({ entryId, person }: DiaryEditorProps) {
               </span>
               <Input
                 value={title}
+                readOnly={!isAdmin}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Hari yang menyenangkan"
               />
@@ -159,6 +210,7 @@ export function DiaryEditor({ entryId, person }: DiaryEditorProps) {
               </span>
               <Input
                 value={mood}
+                readOnly={!isAdmin}
                 onChange={(event) => setMood(event.target.value)}
                 placeholder="Happy"
               />
@@ -183,6 +235,7 @@ export function DiaryEditor({ entryId, person }: DiaryEditorProps) {
               </span>
               <textarea
                 value={content}
+                readOnly={!isAdmin}
                 onChange={(event) => setContent(event.target.value)}
                 placeholder="Mulai menulis cerita kecil hari ini..."
                 className={cn(
@@ -220,5 +273,150 @@ export function DiaryEditor({ entryId, person }: DiaryEditorProps) {
         </aside>
       </div>
     </div>
+  );
+}
+
+type DiaryBookSpreadProps = {
+  entries: DiaryEntry[];
+  onTurn: (direction: "next" | "previous") => void;
+  pageIndex: number;
+  person: Person;
+  turnDirection: "next" | "previous" | null;
+};
+
+function DiaryBookSpread({
+  entries,
+  onTurn,
+  pageIndex,
+  person,
+  turnDirection,
+}: DiaryBookSpreadProps) {
+  const leftEntry = entries[pageIndex];
+  const rightEntry = entries[pageIndex + 1];
+  const hasPreviousPage = pageIndex > 0;
+  const hasNextPage = pageIndex + 2 < entries.length;
+
+  return (
+    <article className="relative">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!hasPreviousPage || Boolean(turnDirection)}
+          onClick={() => onTurn("previous")}
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Previous
+        </Button>
+        <p className="text-center text-xs font-semibold uppercase text-[#9B645C]">
+          Pages {pageIndex + 1}-{Math.min(pageIndex + 2, entries.length)} of{" "}
+          {entries.length}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!hasNextPage || Boolean(turnDirection)}
+          onClick={() => onTurn("next")}
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="rounded-[1.6rem] border-[10px] border-[#6E5749] bg-[#6E5749] shadow-2xl sm:rounded-[2.25rem]">
+        <div
+          className={cn(
+            "diary-book-spread relative grid min-h-[620px] overflow-hidden rounded-[1rem] bg-[#FFF9EF] shadow-inner sm:rounded-[1.55rem] lg:grid-cols-2",
+            turnDirection === "next" && "diary-spread-turn-next",
+            turnDirection === "previous" && "diary-spread-turn-previous",
+          )}
+        >
+          <DiaryBookPage
+            entry={leftEntry}
+            fallbackLabel={`${person.nickname}'s Diary`}
+            side="left"
+          />
+          <DiaryBookPage
+            entry={rightEntry}
+            fallbackLabel={`${person.nickname}'s Diary`}
+            side="right"
+          />
+          {turnDirection ? (
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-y-0 hidden w-1/2 bg-[#FFF4E6] shadow-2xl lg:block",
+                turnDirection === "next"
+                  ? "diary-page-flip-next right-0 origin-left"
+                  : "diary-page-flip-previous left-0 origin-right",
+              )}
+            />
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+type DiaryBookPageProps = {
+  entry?: DiaryEntry;
+  fallbackLabel: string;
+  side: "left" | "right";
+};
+
+function DiaryBookPage({ entry, fallbackLabel, side }: DiaryBookPageProps) {
+  return (
+    <section
+      className={cn(
+        "relative min-h-[620px] bg-[#FFFDF8] px-5 py-8 sm:px-10",
+        "bg-[linear-gradient(transparent_31px,#ECDCCB_32px)] bg-[length:100%_32px]",
+        side === "left"
+          ? "border-b border-[#D5BCA8] lg:border-b-0 lg:border-r"
+          : "",
+      )}
+    >
+      <div className="relative z-10">
+        {entry ? (
+          <>
+            <div className="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F3D6D0] text-[#9B645C]">
+              <BookOpenText className="h-6 w-6" />
+            </div>
+
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[#9B645C]">
+              <CalendarHeart className="h-4 w-4" />
+              {entry.date}
+            </p>
+            <h1 className="mt-3 text-3xl font-bold leading-tight text-[#3D2F2A]">
+              {entry.title}
+            </h1>
+            <p className="mt-2 text-sm font-semibold text-[#9B645C]">
+              Mood: {entry.mood}
+            </p>
+
+            <p className="mt-8 whitespace-pre-wrap text-sm leading-8 text-[#5F504A]">
+              {entry.content}
+            </p>
+
+            {entry.image ? (
+              <div
+                className="mt-8 aspect-[4/3] rounded-2xl border border-[#E4D1C0] bg-cover bg-center shadow-sm"
+                style={{ backgroundImage: `url(${entry.image})` }}
+              />
+            ) : null}
+          </>
+        ) : (
+          <div className="flex min-h-[500px] flex-col justify-center rounded-2xl border border-dashed border-[#E4D1C0] px-6 text-center">
+            <ImageIcon className="mx-auto mb-3 h-6 w-6 text-[#9B8B83]" />
+            <p className="text-xs font-semibold uppercase text-[#9B645C]">
+              {fallbackLabel}
+            </p>
+            <p className="mt-3 text-sm leading-8 text-[#6F5E57]">
+              Belum ada diary untuk halaman ini.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

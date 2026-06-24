@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
   type PersonPayload,
   requiredText,
-  syncPersonCollections,
 } from "@/src/lib/admin/people";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/server";
 
@@ -53,11 +53,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const syncError = await syncPersonCollections(person.id, payload);
-
-  if (syncError) {
-    return NextResponse.json({ message: syncError }, { status: 500 });
-  }
-
+  revalidatePath("/people");
+  revalidatePath("/admin/people");
+  revalidatePath("/search");
   return NextResponse.json({ id: person.id });
 }

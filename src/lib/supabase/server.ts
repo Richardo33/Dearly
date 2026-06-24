@@ -10,6 +10,13 @@ export function createSupabaseServerClient() {
     auth: {
       persistSession: false,
     },
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          cache: "no-store",
+        }),
+    },
   });
 }
 
@@ -19,6 +26,13 @@ export function createSupabaseAdminClient() {
   return createClient<Database>(env.url, env.serviceRoleKey, {
     auth: {
       persistSession: false,
+    },
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          cache: "no-store",
+        }),
     },
   });
 }

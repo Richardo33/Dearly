@@ -4,19 +4,21 @@ import { CalendarHeart, Eye, Heart, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { Surface } from "@/components/ui/surface";
+import { getPersonPath } from "@/lib/person-path";
 import { DeletePersonButton } from "@/src/components/people/delete-person-button";
 import { PersonPhoto } from "@/src/components/people/person-photo";
 import type { Person } from "@/src/types/person";
 
 type PersonCardProps = {
+  isAdmin?: boolean;
   person: Person;
 };
 
-export function PersonCard({ person }: PersonCardProps) {
+export function PersonCard({ isAdmin = false, person }: PersonCardProps) {
   return (
     <Surface className="group relative h-full overflow-hidden transition hover:-translate-y-1 hover:bg-white hover:shadow-md">
       <Link
-        href={`/people/${person.id}`}
+        href={getPersonPath(person)}
         aria-label={`Open ${person.name} profile`}
         className="absolute inset-0 z-0"
       />
@@ -55,21 +57,23 @@ export function PersonCard({ person }: PersonCardProps) {
             <Eye className="h-3.5 w-3.5" />
             Open profile
           </span>
-          <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-          <LinkButton
-            href={`/admin/people/${person.id}/edit`}
-            variant="secondary"
-            size="icon-sm"
-            aria-label={`Edit ${person.name}`}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </LinkButton>
-          <DeletePersonButton
-            compact
-            personId={person.id}
-            personName={person.name}
-          />
-          </div>
+          {isAdmin ? (
+            <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+              <LinkButton
+                href={`/admin/people/${person.id}/edit`}
+                variant="secondary"
+                size="icon-sm"
+                aria-label={`Edit ${person.name}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </LinkButton>
+              <DeletePersonButton
+                compact
+                personId={person.id}
+                personName={person.name}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
       </Surface>

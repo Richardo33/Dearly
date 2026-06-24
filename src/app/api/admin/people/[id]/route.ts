@@ -1,11 +1,8 @@
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
-import {
-  type PersonPayload,
-  requiredText,
-  syncPersonCollections,
-} from "@/src/lib/admin/people";
+import { type PersonPayload, requiredText } from "@/src/lib/admin/people";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/server";
 
 type PeopleRouteProps = {
@@ -17,6 +14,17 @@ type PeopleRouteProps = {
 async function isAdminSession() {
   const cookieStore = await cookies();
   return cookieStore.get("dearly_admin")?.value === "true";
+}
+
+function revalidatePeopleViews(personId: string) {
+  revalidatePath("/people");
+  revalidatePath(`/people/${personId}`);
+  revalidatePath("/favorites");
+  revalidatePath("/wishlist");
+  revalidatePath("/little-things");
+  revalidatePath("/timeline");
+  revalidatePath("/diary");
+  revalidatePath("/search");
 }
 
 export async function PATCH(request: Request, { params }: PeopleRouteProps) {
@@ -57,12 +65,7 @@ export async function PATCH(request: Request, { params }: PeopleRouteProps) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 
-  const syncError = await syncPersonCollections(id, payload, { replace: true });
-
-  if (syncError) {
-    return NextResponse.json({ message: syncError }, { status: 500 });
-  }
-
+  revalidatePeopleViews(id);
   return NextResponse.json({ id });
 }
 
@@ -79,5 +82,6 @@ export async function DELETE(_request: Request, { params }: PeopleRouteProps) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 
+  revalidatePeopleViews(id);
   return NextResponse.json({ message: "Person deleted" });
 }

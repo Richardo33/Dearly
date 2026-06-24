@@ -58,6 +58,7 @@ export type MediaAsset = {
 
 export type Person = {
   id: string;
+  slug: string;
   name: string;
   nickname: string;
   relationship: PersonRelationship;
