@@ -12,10 +12,12 @@ import { PageHeader, PageShell, TopNav } from "@/components/layout/page-shell";
 import { LinkButton } from "@/components/ui/link-button";
 import { Surface } from "@/components/ui/surface";
 import { getDashboardStats, getPeople } from "@/src/features/people/data";
+import { isAdminSession } from "@/src/lib/admin/session";
 
 const statIcons = [Users, Heart, Gift, Sparkles, ListTodo, Image];
 
 export default async function AdminPage() {
+  const isAdmin = await isAdminSession();
   const people = await getPeople();
   const dashboardStats = await getDashboardStats();
   const recentEntries = people.flatMap((person) =>
@@ -27,15 +29,21 @@ export default async function AdminPage() {
       <TopNav
         brandLabel="Dearly"
         action={
-          <LinkButton href="/admin/people/new" size="sm">
-            Add Person
-          </LinkButton>
+          isAdmin ? (
+            <LinkButton href="/admin/people/new" size="sm">
+              Add Person
+            </LinkButton>
+          ) : null
         }
       />
 
       <PageHeader
         title="Dashboard"
-        description="Overview of your data."
+        description={
+          isAdmin
+            ? "Overview of your data."
+            : "Demo overview. Login as admin to manage real data."
+        }
         className="[&_h1]:md:text-4xl [&_p]:text-sm [&_p]:leading-6"
       />
 

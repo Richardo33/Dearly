@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { ArrowLeft, BookHeart } from "lucide-react";
 
 import { AppSidebar, MobileTabBar } from "@/components/layout/app-navigation";
+import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
+import { isAdminSession } from "@/src/lib/admin/session";
 
 type PageShellProps = {
   children: ReactNode;
@@ -20,16 +22,18 @@ const maxWidthClass = {
   "7xl": "max-w-7xl",
 };
 
-function PageShell({
+async function PageShell({
   children,
   className,
   contentClassName,
   maxWidth = "7xl",
   withAppNav = false,
 }: PageShellProps) {
+  const isAdmin = withAppNav ? await isAdminSession() : false;
+
   return (
     <main className={cn("min-h-screen bg-[#F8F1E8] text-[#3D2F2A]", className)}>
-      {withAppNav ? <AppSidebar /> : null}
+      {withAppNav ? <AppSidebar isAdmin={isAdmin} /> : null}
       <section
         className={cn(
           "mx-auto w-full px-4 py-6 pb-28 sm:px-6 sm:py-8 xl:pb-8",
@@ -88,40 +92,6 @@ function TopNav({
         action
       )}
     </nav>
-  );
-}
-
-type PageHeaderProps = {
-  actions?: ReactNode;
-  className?: string;
-  description?: string;
-  eyebrow?: ReactNode;
-  title: string;
-};
-
-function PageHeader({
-  actions,
-  className,
-  description,
-  eyebrow,
-  title,
-}: PageHeaderProps) {
-  return (
-    <header
-      className={cn(
-        "mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end",
-        className,
-      )}
-    >
-      <div className="max-w-3xl">
-        {eyebrow}
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-6xl">{title}</h1>
-        {description ? (
-          <p className="mt-4 text-lg leading-8 text-[#6F5E57]">{description}</p>
-        ) : null}
-      </div>
-      {actions}
-    </header>
   );
 }
 

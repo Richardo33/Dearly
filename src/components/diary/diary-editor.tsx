@@ -64,6 +64,7 @@ export function DiaryEditor({
   const [turnDirection, setTurnDirection] = useState<"next" | "previous" | null>(
     null,
   );
+  const [turningEntry, setTurningEntry] = useState<DiaryEntry | undefined>();
 
   const [date, setDate] = useState(initialEntry?.date ?? getTodayValue());
   const [title, setTitle] = useState(initialEntry?.title ?? "");
@@ -132,10 +133,19 @@ export function DiaryEditor({
             return;
           }
 
+          setTurningEntry(
+            direction === "next"
+              ? diaryEntries[pageIndex + 1]
+              : diaryEntries[pageIndex],
+          );
           setTurnDirection(direction);
           setPageIndex(nextPageIndex);
-          window.setTimeout(() => setTurnDirection(null), 520);
+          window.setTimeout(() => {
+            setTurnDirection(null);
+            setTurningEntry(undefined);
+          }, 760);
         }}
+        turningEntry={turningEntry}
       />
     );
   }
@@ -281,6 +291,7 @@ type DiaryBookSpreadProps = {
   onTurn: (direction: "next" | "previous") => void;
   pageIndex: number;
   person: Person;
+  turningEntry?: DiaryEntry;
   turnDirection: "next" | "previous" | null;
 };
 
@@ -289,6 +300,7 @@ function DiaryBookSpread({
   onTurn,
   pageIndex,
   person,
+  turningEntry,
   turnDirection,
 }: DiaryBookSpreadProps) {
   const leftEntry = entries[pageIndex];
@@ -327,11 +339,7 @@ function DiaryBookSpread({
 
       <div className="rounded-[1.6rem] border-[10px] border-[#6E5749] bg-[#6E5749] shadow-2xl sm:rounded-[2.25rem]">
         <div
-          className={cn(
-            "diary-book-spread relative grid min-h-[620px] overflow-hidden rounded-[1rem] bg-[#FFF9EF] shadow-inner sm:rounded-[1.55rem] lg:grid-cols-2",
-            turnDirection === "next" && "diary-spread-turn-next",
-            turnDirection === "previous" && "diary-spread-turn-previous",
-          )}
+          className="diary-book-spread relative grid min-h-[620px] overflow-hidden rounded-[1rem] bg-[#FFF9EF] shadow-inner sm:rounded-[1.55rem] lg:grid-cols-2"
         >
           <DiaryBookPage
             entry={leftEntry}
@@ -346,16 +354,58 @@ function DiaryBookSpread({
           {turnDirection ? (
             <div
               className={cn(
-                "pointer-events-none absolute inset-y-0 hidden w-1/2 bg-[#FFF4E6] shadow-2xl lg:block",
+                "diary-turning-page pointer-events-none absolute inset-y-0 z-30 hidden w-1/2 overflow-hidden bg-[#FFFDF8] lg:block",
                 turnDirection === "next"
-                  ? "diary-page-flip-next right-0 origin-left"
-                  : "diary-page-flip-previous left-0 origin-right",
+                  ? "diary-page-flip-next right-0"
+                  : "diary-page-flip-previous left-0",
               )}
-            />
+            >
+              <DiaryTurningPage entry={turningEntry} />
+            </div>
           ) : null}
         </div>
       </div>
     </article>
+  );
+}
+
+type DiaryTurningPageProps = {
+  entry?: DiaryEntry;
+};
+
+function DiaryTurningPage({ entry }: DiaryTurningPageProps) {
+  return (
+    <div className="relative h-full bg-[linear-gradient(transparent_31px,#ECDCCB_32px)] bg-[length:100%_32px] px-10 py-8">
+      <div className="relative z-10">
+        {entry ? (
+          <>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[#9B645C]">
+              <CalendarHeart className="h-4 w-4" />
+              {entry.date}
+            </p>
+            <h2 className="mt-3 text-3xl font-bold leading-tight text-[#3D2F2A]">
+              {entry.title}
+            </h2>
+            <p className="mt-2 text-sm font-semibold text-[#9B645C]">
+              Mood: {entry.mood}
+            </p>
+            <p className="mt-8 line-clamp-[12] whitespace-pre-wrap text-sm leading-8 text-[#5F504A]">
+              {entry.content}
+            </p>
+            {entry.image ? (
+              <div
+                className="mt-8 aspect-[4/3] rounded-2xl border border-[#E4D1C0] bg-cover bg-center shadow-sm"
+                style={{ backgroundImage: `url(${entry.image})` }}
+              />
+            ) : null}
+          </>
+        ) : (
+          <div className="flex h-full min-h-[520px] items-center justify-center text-sm font-semibold text-[#9B8B83]">
+            Blank page
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

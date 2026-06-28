@@ -3,6 +3,8 @@ import { connection } from "next/server";
 import { getSupabasePublicEnv } from "@/src/lib/supabase/env";
 import { createSupabaseServerClient } from "@/src/lib/supabase/server";
 import { getPersonSlug } from "@/lib/person-path";
+import { isAdminSession } from "@/src/lib/admin/session";
+import { demoPeople } from "@/src/features/people/demo-data";
 import type { Person } from "@/src/types/person";
 
 type PeopleRow = {
@@ -145,7 +147,7 @@ function mapPeopleRows(rows: PeopleRow[]): Person[] {
   });
 }
 
-export async function getPeople() {
+async function getRealPeople() {
   if (!getSupabasePublicEnv()) {
     return [];
   }
@@ -166,6 +168,14 @@ export async function getPeople() {
   return mapPeopleRows(data as PeopleRow[]);
 }
 
+export async function getPeople() {
+  if (!(await isAdminSession())) {
+    return demoPeople;
+  }
+
+  return getRealPeople();
+}
+
 export async function getActivePeople() {
   const people = await getPeople();
 
@@ -178,7 +188,7 @@ function isUuid(value: string) {
   );
 }
 
-export async function getPersonById(id: string) {
+async function getRealPersonById(id: string) {
   if (!getSupabasePublicEnv()) {
     return null;
   }
@@ -206,6 +216,16 @@ export async function getPersonById(id: string) {
   }
 
   return mapPeopleRows([data as PeopleRow])[0] ?? null;
+}
+
+export async function getPersonById(id: string) {
+  if (!(await isAdminSession())) {
+    return (
+      demoPeople.find((person) => person.id === id || person.slug === id) ?? null
+    );
+  }
+
+  return getRealPersonById(id);
 }
 
 export async function getDashboardStats() {

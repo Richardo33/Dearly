@@ -1,8 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { PageShell, TopNav } from "@/components/layout/page-shell";
 import { PersonForm } from "@/src/components/people/person-form";
 import { getPersonById } from "@/src/features/people/data";
+import { isAdminSession } from "@/src/lib/admin/session";
 
 type EditPersonPageProps = {
   params: Promise<{
@@ -11,6 +12,10 @@ type EditPersonPageProps = {
 };
 
 export default async function EditPersonPage({ params }: EditPersonPageProps) {
+  if (!(await isAdminSession())) {
+    redirect("/people");
+  }
+
   const { id } = await params;
   const person = await getPersonById(id);
 

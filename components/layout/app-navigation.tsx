@@ -16,8 +16,15 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function AppSidebar() {
+type AppNavigationProps = {
+  isAdmin?: boolean;
+};
+
+function AppSidebar({ isAdmin = false }: AppNavigationProps) {
   const pathname = usePathname();
+  const navigationItems = appNavigation.filter(
+    (item) => isAdmin || item.href !== "/settings",
+  );
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-48 border-r border-[#E7D8CB] bg-[#FFF9EF]/95 px-4 py-6 backdrop-blur xl:flex xl:flex-col">
@@ -31,7 +38,7 @@ function AppSidebar() {
       </Link>
 
       <nav className="space-y-1">
-        {appNavigation.map((item) => {
+        {navigationItems.map((item) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
 

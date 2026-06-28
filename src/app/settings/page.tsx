@@ -1,11 +1,17 @@
 import { Download, KeyRound, ShieldAlert } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { PageHeader, PageShell, TopNav } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Surface } from "@/components/ui/surface";
+import { isAdminSession } from "@/src/lib/admin/session";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  if (!(await isAdminSession())) {
+    redirect("/admin");
+  }
+
   return (
     <PageShell maxWidth="5xl" withAppNav>
       <TopNav />

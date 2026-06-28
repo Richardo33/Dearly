@@ -4,7 +4,7 @@ import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { PageHeader } from "@/components/layout/page-shell";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { LinkButton } from "@/components/ui/link-button";

@@ -1,4 +1,5 @@
 import { Pencil, Plus } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { PageHeader, PageShell, TopNav } from "@/components/layout/page-shell";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +8,13 @@ import { Surface } from "@/components/ui/surface";
 import { DeletePersonButton } from "@/src/components/people/delete-person-button";
 import { PersonPhoto } from "@/src/components/people/person-photo";
 import { getPeople } from "@/src/features/people/data";
+import { isAdminSession } from "@/src/lib/admin/session";
 
 export default async function AdminPeoplePage() {
+  if (!(await isAdminSession())) {
+    redirect("/people");
+  }
+
   const people = await getPeople();
 
   return (
